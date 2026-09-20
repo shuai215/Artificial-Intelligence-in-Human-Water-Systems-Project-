@@ -1,0 +1,35 @@
+[project]
+name = "green-roofs"
+version = "0.1.0"
+description = "Berlin green-roof segmentation and spatial validation pipeline"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "Pillow>=10.0",
+    "geopandas>=1.0",
+    "matplotlib>=3.8",
+    "mercantile>=1.2",
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "pyogrio>=0.10",
+    "pyproj>=3.7",
+    "rasterio>=1.4",
+    "scipy>=1.14",
+    "shapely>=2.0",
+    "torch>=2.0",
+    "torchvision>=0.15",
+    "transformers>=5.17.0",
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+torchvision = { index = "pytorch-cu126" }
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"

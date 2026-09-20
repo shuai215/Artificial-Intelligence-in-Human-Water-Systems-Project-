@@ -1,0 +1,30 @@
+[data]
+dataset_root = "../../data/green_roofs/green_roofs"
+processed_root = "../../data/processed/green_roofs_2016"
+image_size = 256
+augment_training = true
+
+[model]
+name = "exercise_resnet50_unet"
+pretrained = true
+num_classes = 1
+freeze_encoder_batch_norm = true
+
+[loss]
+name = "bce_dice"
+bce_weight = 0.5
+dice_weight = 0.5
+
+[sampling]
+positive_tile_fraction = 0.5
+positive_repeats_per_epoch = 2.0
+
+[training]
+seed = 42
+batch_size = 4
+num_workers = 0
+epochs = 40
+learning_rate = 0.0001
+early_stopping_patience = 6
+early_stopping_min_delta = 0.001
+output_dir = "../../runs/unet_baseline_v2"

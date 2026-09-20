@@ -1,0 +1,5 @@
+__pycache__/
+*.py[cod]
+.venv/
+.ppt_build/
+symbology-style.db

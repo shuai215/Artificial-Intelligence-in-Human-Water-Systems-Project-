@@ -1,0 +1,209 @@
+{
+  "dataset_root": "E:\\Artificial_Intelligence_in_water\\project\\data\\green_roofs\\green_roofs",
+  "orthophotos_2016": {
+    "format": "XYZ Web Mercator tiles",
+    "zoom": 19,
+    "tile_count": 3510,
+    "tile_metadata": {
+      "width": 256,
+      "height": 256,
+      "bit_depth": 8,
+      "color_type": "RGBA"
+    },
+    "all_tiles_same_metadata": true,
+    "file_size_bytes": {
+      "min": 72225,
+      "mean": 109595,
+      "max": 144446
+    },
+    "tile_x_range": [
+      281761,
+      281814
+    ],
+    "tile_y_range": [
+      172126,
+      172190
+    ],
+    "tiles_per_x_min_max": [
+      65,
+      65
+    ],
+    "tiles_per_y_min_max": [
+      54,
+      54
+    ],
+    "complete_rectangular_grid": true,
+    "bbox_wgs84": [
+      13.469924926757812,
+      52.41624141357469,
+      13.507003784179688,
+      52.443454960583146
+    ],
+    "approx_meters_per_pixel": 0.1820551875223168
+  },
+  "orthophotos_2025": {
+    "jp2_count": 4
+  },
+  "vector_layers": [
+    {
+      "file": "E:\\Artificial_Intelligence_in_water\\project\\data\\green_roofs\\green_roofs\\Berlin_2016_12357_Green_city.shp",
+      "shape_type": "Polygon",
+      "record_count": 6512,
+      "bbox_wgs84": [
+        13.471393846469573,
+        52.417156037078904,
+        13.513959841592172,
+        52.44189202696231
+      ],
+      "fields": [
+        {
+          "name": "plz",
+          "type": "C",
+          "length": 80,
+          "decimals": 0
+        },
+        {
+          "name": "bds16_id",
+          "type": "N",
+          "length": 18,
+          "decimals": 0
+        }
+      ],
+      "categorical_counts": {
+        "plz": {
+          "12357": 6512
+        }
+      },
+      "numeric_summaries": {},
+      "projection": "GEOGCS[\"GCS_WGS_1984\",DATUM[\"D_WGS_1984\",SPHEROID[\"WGS_1984\",6378137.0,298.257223563]],PRIMEM[\"Greenwich\",0.0],UNIT[\"Degree\",0.0174532925199433]]",
+      "image_extent_coverage": {
+        "fully_inside_image_extent": 6282,
+        "partly_clipped_by_image_extent": 9,
+        "outside_image_extent": 221
+      }
+    },
+    {
+      "file": "E:\\Artificial_Intelligence_in_water\\project\\data\\green_roofs\\green_roofs\\training_labels_entire_roofs\\Berlin_2016_12357_Green.shp",
+      "shape_type": "Polygon",
+      "record_count": 55,
+      "bbox_wgs84": [
+        13.474471973084015,
+        52.41859339275262,
+        13.508722073697593,
+        52.44042980375568
+      ],
+      "fields": [
+        {
+          "name": "plz",
+          "type": "C",
+          "length": 80,
+          "decimals": 0
+        },
+        {
+          "name": "bds16_id",
+          "type": "N",
+          "length": 18,
+          "decimals": 0
+        },
+        {
+          "name": "index_righ",
+          "type": "N",
+          "length": 18,
+          "decimals": 0
+        }
+      ],
+      "categorical_counts": {
+        "plz": {
+          "12357": 55
+        }
+      },
+      "numeric_summaries": {},
+      "projection": "GEOGCS[\"GCS_WGS_1984\",DATUM[\"D_WGS_1984\",SPHEROID[\"WGS_1984\",6378137.0,298.257223563]],PRIMEM[\"Greenwich\",0.0],UNIT[\"Degree\",0.0174532925199433]]",
+      "image_extent_coverage": {
+        "fully_inside_image_extent": 53,
+        "partly_clipped_by_image_extent": 0,
+        "outside_image_extent": 2
+      }
+    },
+    {
+      "file": "E:\\Artificial_Intelligence_in_water\\project\\data\\green_roofs\\green_roofs\\training_labels_partial_roofs\\Berlin_Gründächer_DachteilflächenGebäude_2016_12357.shp",
+      "shape_type": "Polygon",
+      "record_count": 928,
+      "bbox_wgs84": [
+        13.474527207195344,
+        52.41886197602733,
+        13.508717172292839,
+        52.441302921434236
+      ],
+      "fields": [
+        {
+          "name": "gruen_kat",
+          "type": "C",
+          "length": 254,
+          "decimals": 0
+        },
+        {
+          "name": "area",
+          "type": "N",
+          "length": 11,
+          "decimals": 3
+        },
+        {
+          "name": "plz",
+          "type": "C",
+          "length": 80,
+          "decimals": 0
+        },
+        {
+          "name": "gt2016_id",
+          "type": "N",
+          "length": 10,
+          "decimals": 0
+        }
+      ],
+      "categorical_counts": {
+        "gruen_kat": {
+          "intensiv": 492,
+          "extensiv": 436
+        },
+        "plz": {
+          "12357": 928
+        }
+      },
+      "numeric_summaries": {
+        "area": {
+          "min": 0.0,
+          "p25": 0.16,
+          "median": 0.32,
+          "p75": 1.601,
+          "mean": 9.418568965517242,
+          "max": 1023.792,
+          "zero_count": 1
+        }
+      },
+      "projection": "GEOGCS[\"GCS_WGS_1984\",DATUM[\"D_WGS_1984\",SPHEROID[\"WGS_1984\",6378137.0,298.257223563]],PRIMEM[\"Greenwich\",0.0],UNIT[\"Degree\",0.0174532925199433]]",
+      "image_extent_coverage": {
+        "fully_inside_image_extent": 918,
+        "partly_clipped_by_image_extent": 0,
+        "outside_image_extent": 10
+      }
+    }
+  ],
+  "building_footprints": {
+    "format": "GeoJSON",
+    "feature_count": 6512,
+    "declared_crs": {
+      "type": "name",
+      "properties": {
+        "name": "urn:ogc:def:crs:EPSG::25833"
+      }
+    },
+    "geometry_types": {
+      "MultiPolygon": 6512
+    },
+    "property_fields": [
+      "bds16_id",
+      "plz"
+    ]
+  }
+}
