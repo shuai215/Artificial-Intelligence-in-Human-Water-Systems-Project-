@@ -599,3 +599,21 @@
   a complete CSV index; all 24 unit tests passed.
 - Risk/TODO: this is a deliberately balanced QA sample, not a prevalence or
   accuracy sample; independent 2025 annotation is still required.
+
+## 2026-09-20 — Git baseline and readability refactor
+
+- Created Git baseline commit `3ac8885` after excluding the local uv
+  environment, PowerPoint build cache, and QGIS style database.
+- Split training sampler construction from `scripts/train.py`; split threshold
+  accumulation, per-tile statistics, and diagnostics from
+  `scripts/analyze_validation.py` without changing experiment behavior.
+- Removed all manual `sys.path` injection from scripts and tests, reused the
+  shared mask-overlay renderer, and added `configs/README.md` to distinguish
+  final, historical, and exploratory configurations without deleting any.
+- Validation: `uv lock --check`, compilation, and all 24 tests passed; both
+  balanced and positive-only training checks passed on CUDA; refactored
+  validation metrics exactly matched the historical JSON; all 50 regenerated
+  comparison PNGs were byte-identical.
+- Risk/TODO: CUDA seeds do not guarantee bitwise determinism across every
+  platform; completed checkpoints and frozen reports remain the source of
+  truth for the reported experiments.

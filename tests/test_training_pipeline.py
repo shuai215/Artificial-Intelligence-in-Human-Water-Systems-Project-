@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import csv
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,16 +9,13 @@ import torch
 from PIL import Image
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
-
-from green_roofs.dataset import GreenRoofDataset  # noqa: E402
-from green_roofs.losses import BCEDiceLoss, FocalBCEDiceLoss, TverskyLoss  # noqa: E402
-from green_roofs.manifests import MANIFEST_FIELDS  # noqa: E402
-from green_roofs.metrics import BinarySegmentationMetrics  # noqa: E402
-from green_roofs.models import ExerciseResNet50UNet, build_model  # noqa: E402
-from green_roofs.sampling import BalancedTileBatchSampler  # noqa: E402
-from green_roofs.transforms import SegmentationTransform  # noqa: E402
+from green_roofs.dataset import GreenRoofDataset
+from green_roofs.losses import BCEDiceLoss, FocalBCEDiceLoss, TverskyLoss
+from green_roofs.manifests import MANIFEST_FIELDS
+from green_roofs.metrics import BinarySegmentationMetrics
+from green_roofs.models import ExerciseResNet50UNet, build_model
+from green_roofs.sampling import BalancedTileBatchSampler
+from green_roofs.transforms import SegmentationTransform
 
 
 class DatasetTests(unittest.TestCase):

@@ -230,6 +230,7 @@ The first run may download ImageNet ResNet50 weights. Configuration is in
 training histories. The test manifest is deliberately excluded from model
 selection. Final test evaluation uses the threshold frozen on validation; see
 `reports/negative_tile_ablation.md` and `reports/model_comparison.md`.
+The role of every retained TOML file is listed in `configs/README.md`.
 
 ## Train the SegFormer-B0 comparison
 

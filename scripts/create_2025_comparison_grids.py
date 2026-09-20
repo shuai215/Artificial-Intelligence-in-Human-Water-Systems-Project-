@@ -12,6 +12,9 @@ import numpy as np
 import pandas as pd
 from PIL import Image, ImageDraw
 
+from green_roofs.label_qa import create_mask_overlay
+from green_roofs.tiles import TILE_SIZE
+
 
 MODELS = {
     "A": ("unet_plz12357_all", "A  Main U-Net"),
@@ -68,10 +71,8 @@ def select_evenly(candidates: list[Candidate], count: int) -> list[Candidate]:
 
 
 def overlay(image: Image.Image, mask: np.ndarray) -> Image.Image:
-    result = image.convert("RGBA")
-    layer = Image.new("RGBA", image.size, (255, 30, 120, 0))
-    layer.putalpha(Image.fromarray(mask.astype(np.uint8) * 150, mode="L"))
-    return Image.alpha_composite(result, layer).convert("RGB")
+    mask_image = Image.fromarray(mask.astype(np.uint8) * 255, mode="L")
+    return create_mask_overlay(image, mask_image, color=(255, 30, 120), opacity=150)
 
 
 def comparison_image(root: Path, candidate: Candidate) -> Image.Image:
@@ -80,7 +81,7 @@ def comparison_image(root: Path, candidate: Candidate) -> Image.Image:
     with Image.open(image_path) as source:
         image = source.convert("RGB")
 
-    header, label_height, size = 36, 24, 256
+    header, label_height, size = 36, 24, TILE_SIZE
     canvas = Image.new("RGB", (size * 2, header + 2 * (label_height + size)), "#171717")
     draw = ImageDraw.Draw(canvas)
     draw.text(
@@ -139,7 +140,7 @@ def main() -> None:
         score = (
             sum(overlaps) / len(overlaps)
             if overlaps
-            else sum(pixels.values()) / (256 * 256)
+            else sum(pixels.values()) / (TILE_SIZE * TILE_SIZE)
         )
         grouped[group].append(Candidate(tile_id, group, score, masks, pixels))
 

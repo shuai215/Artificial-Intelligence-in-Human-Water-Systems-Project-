@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import sys
 import tomllib
 from pathlib import Path
 
@@ -14,13 +13,11 @@ from PIL import Image, ImageDraw
 from torch.utils.data import DataLoader
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
-
-from green_roofs.dataset import GreenRoofDataset  # noqa: E402
-from green_roofs.metrics import binary_metrics_from_counts  # noqa: E402
-from green_roofs.models import build_model  # noqa: E402
-from green_roofs.transforms import SegmentationTransform  # noqa: E402
+from green_roofs.dataset import GreenRoofDataset
+from green_roofs.label_qa import create_mask_overlay
+from green_roofs.metrics import binary_metrics_from_counts
+from green_roofs.models import build_model
+from green_roofs.transforms import SegmentationTransform
 
 
 def resolve_path(config_path: Path, value: str) -> Path:
@@ -63,14 +60,6 @@ def probability_image(probability: torch.Tensor) -> Image.Image:
     return Image.merge("RGB", (red, green, blue))
 
 
-def overlay(image: Image.Image, mask: Image.Image, color: tuple[int, int, int]) -> Image.Image:
-    result = image.copy().convert("RGBA")
-    alpha = mask.point(lambda value: 125 if value else 0)
-    layer = Image.new("RGBA", image.size, (*color, 0))
-    layer.putalpha(alpha)
-    return Image.alpha_composite(result, layer).convert("RGB")
-
-
 def create_diagnostic(
     image: Image.Image,
     target: torch.Tensor,
@@ -102,9 +91,9 @@ def create_diagnostic(
 
     panels = [
         image.convert("RGB"),
-        overlay(image, target_mask, (0, 220, 0)),
+        create_mask_overlay(image, target_mask, (0, 220, 0)),
         probability_image(probability),
-        overlay(image, prediction_mask, (255, 200, 0)),
+        create_mask_overlay(image, prediction_mask, (255, 200, 0)),
         error,
     ]
     titles = ("Image", "Ground truth", "Probability", "Prediction", "TP/FP/FN")
@@ -125,6 +114,107 @@ def create_diagnostic(
     return canvas
 
 
+def accumulate_threshold_counts(
+    model: torch.nn.Module,
+    loader: DataLoader,
+    device: torch.device,
+    thresholds: list[float],
+) -> dict[float, dict[str, int]]:
+    counts = {
+        threshold: {"tp": 0, "fp": 0, "fn": 0, "tn": 0}
+        for threshold in thresholds
+    }
+    with torch.inference_mode():
+        for batch_index, (images, targets, _) in enumerate(loader, start=1):
+            probabilities = torch.sigmoid(model(images.to(device))[:, 0]).cpu()
+            target_positive = targets.bool()
+            for threshold in thresholds:
+                predicted_positive = probabilities >= threshold
+                counts[threshold]["tp"] += int(
+                    (predicted_positive & target_positive).sum().item()
+                )
+                counts[threshold]["fp"] += int(
+                    (predicted_positive & ~target_positive).sum().item()
+                )
+                counts[threshold]["fn"] += int(
+                    (~predicted_positive & target_positive).sum().item()
+                )
+                counts[threshold]["tn"] += int(
+                    (~predicted_positive & ~target_positive).sum().item()
+                )
+            if batch_index % 25 == 0:
+                print(f"threshold_pass={batch_index}/{len(loader)}")
+    return counts
+
+
+def collect_tile_rows(
+    model: torch.nn.Module,
+    loader: DataLoader,
+    device: torch.device,
+    threshold: float,
+) -> list[dict[str, int | float | str]]:
+    rows: list[dict[str, int | float | str]] = []
+    offset = 0
+    with torch.inference_mode():
+        for batch_index, (images, targets, tile_ids) in enumerate(loader, start=1):
+            probabilities = torch.sigmoid(model(images.to(device))[:, 0]).cpu()
+            predictions = probabilities >= threshold
+            targets_positive = targets.bool()
+            for batch_offset, tile_id in enumerate(tile_ids):
+                prediction = predictions[batch_offset]
+                target_positive = targets_positive[batch_offset]
+                tp = int((prediction & target_positive).sum().item())
+                fp = int((prediction & ~target_positive).sum().item())
+                fn = int((~prediction & target_positive).sum().item())
+                denominator = 2 * tp + fp + fn
+                rows.append(
+                    {
+                        "index": offset + batch_offset,
+                        "tile_id": tile_id,
+                        "target_pixels": int(target_positive.sum().item()),
+                        "predicted_pixels": int(prediction.sum().item()),
+                        "true_positive": tp,
+                        "false_positive": fp,
+                        "false_negative": fn,
+                        "dice": (2 * tp / denominator) if denominator else 1.0,
+                    }
+                )
+            offset += len(tile_ids)
+            if batch_index % 25 == 0:
+                print(f"tile_pass={batch_index}/{len(loader)}")
+    return rows
+
+
+def write_diagnostics(
+    model: torch.nn.Module,
+    dataset: GreenRoofDataset,
+    selected: dict[str, list[dict[str, int | float | str]]],
+    dataset_root: Path,
+    output_dir: Path,
+    device: torch.device,
+    threshold: float,
+) -> None:
+    diagnostic_dir = output_dir / "diagnostics"
+    diagnostic_dir.mkdir(exist_ok=True)
+    with torch.inference_mode():
+        for category, category_rows in selected.items():
+            for rank, row in enumerate(category_rows, start=1):
+                index = int(row["index"])
+                image_tensor, target, tile_id = dataset[index]
+                probability = torch.sigmoid(
+                    model(image_tensor.unsqueeze(0).to(device))[0, 0]
+                ).cpu()
+                record = dataset.records[index]
+                with Image.open(dataset_root / record["image_relpath"]) as source:
+                    image = source.convert("RGB")
+                diagnostic = create_diagnostic(
+                    image, target, probability, threshold, tile_id, category
+                )
+                diagnostic.save(
+                    diagnostic_dir / f"{category}_{rank:02d}_{tile_id}.png"
+                )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("config", type=Path)
@@ -142,6 +232,7 @@ def main() -> None:
     config_path = args.config.resolve()
     checkpoint_path = args.checkpoint.resolve()
     output_dir = args.output.resolve()
+    output_stem = "validation" if args.split == "val" else "test"
     output_dir.mkdir(parents=True, exist_ok=True)
     with config_path.open("rb") as file:
         config = tomllib.load(file)
@@ -178,31 +269,7 @@ def main() -> None:
         if args.threshold is not None
         else [step / 100 for step in range(5, 100, 5)]
     )
-    counts = {
-        threshold: {"tp": 0, "fp": 0, "fn": 0, "tn": 0}
-        for threshold in thresholds
-    }
-    with torch.inference_mode():
-        for batch_index, (images, targets, _) in enumerate(loader, start=1):
-            probabilities = torch.sigmoid(model(images.to(device))[:, 0]).cpu()
-            target_positive = targets.bool()
-            for threshold in thresholds:
-                predicted_positive = probabilities >= threshold
-                counts[threshold]["tp"] += int(
-                    (predicted_positive & target_positive).sum().item()
-                )
-                counts[threshold]["fp"] += int(
-                    (predicted_positive & ~target_positive).sum().item()
-                )
-                counts[threshold]["fn"] += int(
-                    (~predicted_positive & target_positive).sum().item()
-                )
-                counts[threshold]["tn"] += int(
-                    (~predicted_positive & ~target_positive).sum().item()
-                )
-            if batch_index % 25 == 0:
-                print(f"threshold_pass={batch_index}/{len(loader)}")
-
+    counts = accumulate_threshold_counts(model, loader, device, thresholds)
     rows = [metric_row(threshold, counts[threshold]) for threshold in thresholds]
     best = max(rows, key=lambda row: row["foreground_dice"])
     with (output_dir / "threshold_metrics.csv").open(
@@ -213,38 +280,8 @@ def main() -> None:
         writer.writerows(rows)
 
     threshold = float(best["threshold"])
-    tile_rows: list[dict[str, int | float | str]] = []
-    with torch.inference_mode():
-        offset = 0
-        for batch_index, (images, targets, tile_ids) in enumerate(loader, start=1):
-            probabilities = torch.sigmoid(model(images.to(device))[:, 0]).cpu()
-            predictions = probabilities >= threshold
-            targets_positive = targets.bool()
-            for batch_offset, tile_id in enumerate(tile_ids):
-                prediction = predictions[batch_offset]
-                target_positive = targets_positive[batch_offset]
-                tp = int((prediction & target_positive).sum().item())
-                fp = int((prediction & ~target_positive).sum().item())
-                fn = int((~prediction & target_positive).sum().item())
-                denominator = 2 * tp + fp + fn
-                dice = (2 * tp / denominator) if denominator else 1.0
-                tile_rows.append(
-                    {
-                        "index": offset + batch_offset,
-                        "tile_id": tile_id,
-                        "target_pixels": int(target_positive.sum().item()),
-                        "predicted_pixels": int(prediction.sum().item()),
-                        "true_positive": tp,
-                        "false_positive": fp,
-                        "false_negative": fn,
-                        "dice": dice,
-                    }
-                )
-            offset += len(tile_ids)
-            if batch_index % 25 == 0:
-                print(f"tile_pass={batch_index}/{len(loader)}")
-
-    with (output_dir / f"{args.split}_tiles.csv").open(
+    tile_rows = collect_tile_rows(model, loader, device, threshold)
+    with (output_dir / f"{output_stem}_tiles.csv").open(
         "w", newline="", encoding="utf-8"
     ) as file:
         writer = csv.DictWriter(file, fieldnames=list(tile_rows[0]))
@@ -273,26 +310,15 @@ def main() -> None:
             negative_rows, key=lambda row: row["false_positive"], reverse=True
         )[:count],
     }
-    diagnostic_dir = output_dir / "diagnostics"
-    diagnostic_dir.mkdir(exist_ok=True)
-    model.eval()
-    with torch.inference_mode():
-        for category, category_rows in selected.items():
-            for rank, row in enumerate(category_rows, start=1):
-                index = int(row["index"])
-                image_tensor, target, tile_id = dataset[index]
-                probability = torch.sigmoid(
-                    model(image_tensor.unsqueeze(0).to(device))[0, 0]
-                ).cpu()
-                record = dataset.records[index]
-                with Image.open(dataset_root / record["image_relpath"]) as source:
-                    image = source.convert("RGB")
-                diagnostic = create_diagnostic(
-                    image, target, probability, threshold, tile_id, category
-                )
-                diagnostic.save(
-                    diagnostic_dir / f"{category}_{rank:02d}_{tile_id}.png"
-                )
+    write_diagnostics(
+        model,
+        dataset,
+        selected,
+        dataset_root,
+        output_dir,
+        device,
+        threshold,
+    )
 
     summary = {
         "checkpoint": str(checkpoint_path),
@@ -309,7 +335,7 @@ def main() -> None:
             category: len(category_rows) for category, category_rows in selected.items()
         },
     }
-    (output_dir / f"{args.split}_summary.json").write_text(
+    (output_dir / f"{output_stem}_summary.json").write_text(
         json.dumps(summary, indent=2), encoding="utf-8"
     )
     split_title = "Validation" if args.split == "val" else "Test"
@@ -334,7 +360,7 @@ def main() -> None:
             else "The threshold was selected only on validation; test data was not read."
         ),
     ]
-    (output_dir / f"{args.split}_report.md").write_text(
+    (output_dir / f"{output_stem}_report.md").write_text(
         "\n".join(report) + "\n", encoding="utf-8"
     )
     print(json.dumps(summary, indent=2))

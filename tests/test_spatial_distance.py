@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-import sys
 import unittest
-from pathlib import Path
 
 import numpy as np
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
-
-from green_roofs.spatial_distance import (  # noqa: E402
+from green_roofs.spatial_distance import (
     log_distance_kde,
     nearest_distances,
     tile_centres_to_projected,

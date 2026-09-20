@@ -5,16 +5,12 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import sys
 from pathlib import Path
 
 from PIL import Image
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
-
-from green_roofs.manifests import SPLITS, load_manifest  # noqa: E402
+from green_roofs.manifests import SPLITS, load_manifest
 
 
 def safe_ratio(numerator: int, denominator: int) -> float | None:

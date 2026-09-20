@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import sys
 import tomllib
 from contextlib import ExitStack
 from pathlib import Path
@@ -19,13 +18,10 @@ from rasterio.merge import merge
 from rasterio.vrt import WarpedVRT
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
-
-from green_roofs.manifests import load_split_manifests  # noqa: E402
-from green_roofs.models import build_model  # noqa: E402
-from green_roofs.tiles import TILE_SIZE, ZOOM, TileKey, tile_bounds_mercator  # noqa: E402
-from green_roofs.transforms import image_to_tensor  # noqa: E402
+from green_roofs.manifests import load_split_manifests
+from green_roofs.models import build_model
+from green_roofs.tiles import TILE_SIZE, ZOOM, TileKey, tile_bounds_mercator
+from green_roofs.transforms import image_to_tensor
 
 
 def parse_args() -> argparse.Namespace:

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,20 +10,17 @@ from rasterio.transform import from_bounds
 from shapely.geometry import Polygon, box
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
-
-from green_roofs.labels import read_polygon_shapefile  # noqa: E402
-from green_roofs.rasterization import rasterize_geometries  # noqa: E402
-from green_roofs.spatial_split import assign_spatial_splits  # noqa: E402
-from green_roofs.study_area import select_tiles_by_centre  # noqa: E402
-from green_roofs.tiles import TileKey, tile_bounds_mercator  # noqa: E402
-from green_roofs.label_qa import (  # noqa: E402
+from green_roofs.labels import read_polygon_shapefile
+from green_roofs.rasterization import rasterize_geometries
+from green_roofs.spatial_split import assign_spatial_splits
+from green_roofs.study_area import select_tiles_by_centre
+from green_roofs.tiles import TileKey, tile_bounds_mercator
+from green_roofs.label_qa import (
     ReviewRecord,
     coverage_stratified_sample,
     create_review_pair,
 )
-from green_roofs.qgis_annotation import (  # noqa: E402
+from green_roofs.qgis_annotation import (
     create_annotation_geopackage,
     mosaic_spec,
 )

@@ -4,14 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
-
-from green_roofs.preprocessing import prepare_dataset  # noqa: E402
+from green_roofs.preprocessing import prepare_dataset
 
 
 def parse_args() -> argparse.Namespace:

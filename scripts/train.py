@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import math
 import random
-import sys
 import tomllib
 from pathlib import Path
 
@@ -13,19 +12,76 @@ import torch
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
-
-from green_roofs.dataset import GreenRoofDataset  # noqa: E402
-from green_roofs.engine import fit  # noqa: E402
-from green_roofs.losses import build_loss  # noqa: E402
-from green_roofs.models import build_model  # noqa: E402
-from green_roofs.sampling import BalancedTileBatchSampler  # noqa: E402
-from green_roofs.transforms import SegmentationTransform  # noqa: E402
+from green_roofs.dataset import GreenRoofDataset
+from green_roofs.engine import fit
+from green_roofs.losses import build_loss
+from green_roofs.models import build_model
+from green_roofs.sampling import BalancedTileBatchSampler
+from green_roofs.transforms import SegmentationTransform
 
 
 def resolve_path(config_path: Path, value: str) -> Path:
     return (config_path.parent / value).resolve()
+
+
+def seed_everything(seed: int) -> None:
+    random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def build_train_loader(
+    dataset: GreenRoofDataset,
+    sampling_config: dict[str, object],
+    batch_size: int,
+    num_workers: int,
+    seed: int,
+) -> tuple[DataLoader, int, int, bool]:
+    """Build the configured sampler and return its planned epoch composition."""
+    positive_only = bool(sampling_config.get("positive_only", False))
+    if positive_only:
+        positive_indices = set(dataset.positive_indices)
+        loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            sampler=WeightedRandomSampler(
+                [float(index in positive_indices) for index in range(len(dataset))],
+                num_samples=len(dataset),
+                replacement=True,
+                generator=torch.Generator().manual_seed(seed),
+            ),
+            num_workers=num_workers,
+            pin_memory=torch.cuda.is_available(),
+        )
+        return loader, len(dataset), len(dataset), True
+
+    positive_fraction = float(sampling_config["positive_tile_fraction"])
+    positive_repeats = sampling_config.get("positive_repeats_per_epoch")
+    samples_per_epoch = len(dataset)
+    if positive_repeats is not None:
+        positive_draws = math.ceil(
+            len(dataset.positive_indices) * float(positive_repeats)
+        )
+        samples_per_epoch = math.ceil(
+            positive_draws / positive_fraction / batch_size
+        ) * batch_size
+    sampler = BalancedTileBatchSampler(
+        positive_indices=dataset.positive_indices,
+        negative_indices=dataset.negative_indices,
+        batch_size=batch_size,
+        positive_fraction=positive_fraction,
+        seed=seed,
+        samples_per_epoch=samples_per_epoch,
+    )
+    effective_samples = len(sampler) * batch_size
+    loader = DataLoader(
+        dataset,
+        batch_sampler=sampler,
+        num_workers=num_workers,
+        pin_memory=torch.cuda.is_available(),
+    )
+    return loader, effective_samples, round(effective_samples * positive_fraction), False
 
 
 def main() -> None:
@@ -42,10 +98,7 @@ def main() -> None:
         config = tomllib.load(file)
 
     seed = int(config["training"]["seed"])
-    random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
+    seed_everything(seed)
 
     data_config = config["data"]
     dataset_root = resolve_path(config_path, data_config["dataset_root"])
@@ -74,53 +127,18 @@ def main() -> None:
 
     batch_size = int(config["training"]["batch_size"])
     num_workers = int(config["training"]["num_workers"])
-    sampling_config = config["sampling"]
-    positive_only = bool(sampling_config.get("positive_only", False))
-    if positive_only:
-        positive_indices = set(train_dataset.positive_indices)
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=batch_size,
-            sampler=WeightedRandomSampler(
-                [float(index in positive_indices) for index in range(len(train_dataset))],
-                num_samples=len(train_dataset),
-                replacement=True,
-                generator=torch.Generator().manual_seed(seed),
-            ),
-            num_workers=num_workers,
-            pin_memory=torch.cuda.is_available(),
-        )
-        effective_samples_per_epoch = len(train_dataset)
-        planned_positive_per_epoch = effective_samples_per_epoch
-    else:
-        positive_fraction = float(sampling_config["positive_tile_fraction"])
-        positive_repeats = sampling_config.get("positive_repeats_per_epoch")
-        samples_per_epoch = len(train_dataset)
-        if positive_repeats is not None:
-            positive_draws = math.ceil(
-                len(train_dataset.positive_indices) * float(positive_repeats)
-            )
-            samples_per_epoch = math.ceil(
-                positive_draws / positive_fraction / batch_size
-            ) * batch_size
-        train_batch_sampler = BalancedTileBatchSampler(
-            positive_indices=train_dataset.positive_indices,
-            negative_indices=train_dataset.negative_indices,
-            batch_size=batch_size,
-            positive_fraction=positive_fraction,
-            seed=seed,
-            samples_per_epoch=samples_per_epoch,
-        )
-        effective_samples_per_epoch = len(train_batch_sampler) * batch_size
-        planned_positive_per_epoch = round(
-            effective_samples_per_epoch * positive_fraction
-        )
-        train_loader = DataLoader(
-            train_dataset,
-            batch_sampler=train_batch_sampler,
-            num_workers=num_workers,
-            pin_memory=torch.cuda.is_available(),
-        )
+    (
+        train_loader,
+        effective_samples_per_epoch,
+        planned_positive_per_epoch,
+        positive_only,
+    ) = build_train_loader(
+        train_dataset,
+        config["sampling"],
+        batch_size,
+        num_workers,
+        seed,
+    )
     val_loader = DataLoader(
         val_dataset,
         batch_size=batch_size,

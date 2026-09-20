@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import sys
 from pathlib import Path
 
 import matplotlib as mpl
@@ -13,10 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
-
-from green_roofs.spatial_distance import (  # noqa: E402
+from green_roofs.spatial_distance import (
     DISTANCE_CRS,
     ManifestTile,
     log_distance_kde,
