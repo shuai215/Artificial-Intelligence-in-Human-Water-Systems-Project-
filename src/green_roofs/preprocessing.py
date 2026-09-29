@@ -1,8 +1,3 @@
-"""High-level orchestration for the Berlin green-roof preprocessing pipeline.
-
-The public imports previously exposed by this module remain available while
-their implementations live in focused modules.
-"""
 
 from __future__ import annotations
 
@@ -22,7 +17,7 @@ from .spatial_split import assign_spatial_splits
 from .study_area import load_study_area, select_tiles_by_centre
 from .tiles import TILE_SIZE, ZOOM, TileKey, discover_tiles, tile_bounds_mercator
 
-
+#Welche Namen möchte dieses Modul öffentlich preisgeben?
 __all__ = [
     "TILE_SIZE",
     "WEB_MERCATOR_CRS",
@@ -55,6 +50,7 @@ def prepare_dataset(
     output_root.mkdir(parents=True)
 
     discovered_tiles = discover_tiles(dataset_root)
+    #Retain only those tiles whose center points lie within the study area polygon.
     tiles = (
         select_tiles_by_centre(discovered_tiles, load_study_area(study_area_path))
         if study_area_path is not None
@@ -78,9 +74,11 @@ def prepare_dataset(
     assignments, split_block_stats = assign_spatial_splits(
         tile_stats, block_size=block_size, seed=seed
     )
+    #Create a complete record for each tile.
     records = [
         TileRecord(
             key=key,
+            #Save relative path
             image_relpath=image_path.relative_to(dataset_root).as_posix(),
             mask_relpath=mask_relpaths[key],
             positive_pixels=tile_stats[key],

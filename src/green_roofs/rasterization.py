@@ -42,14 +42,19 @@ def write_tile_masks(
     output_root: Path,
 ) -> tuple[dict[TileKey, int], dict[TileKey, str], int]:
     """Rasterize, save, and count masks for the complete tile grid."""
+    #Create a "spatial index" for all polygons.
     spatial_index = features.sindex
+    #The index of a polygon that has intersected with at least one tile.
     covered_feature_indices: set[int] = set()
     tile_stats: dict[TileKey, int] = {}
     mask_relpaths: dict[TileKey, str] = {}
 
     for key in sorted(tiles):
+        #Convert this rectangular area into a Shapely Polygon.
         tile_geometry = box(*tile_bounds_mercator(key))
+        #Find all polygons that intersect with the current tile.
         feature_indices = spatial_index.query(tile_geometry, predicate="intersects")
+        #Add these polygon indices to the master set.
         covered_feature_indices.update(int(index) for index in feature_indices)
         mask = rasterize_geometries(features.geometry.iloc[feature_indices], key)
         positive_pixels = mask.histogram()[1]

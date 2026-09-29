@@ -10,7 +10,13 @@ import pandas as pd
 
 from .tiles import TILE_SIZE, ZOOM, TileKey
 
-
+'''
+x, y: tile coordinates
+image_relpath: relative path to the original image
+mask_relpath: relative path to the mask
+block_id: the spatial block to which it belongs
+positive_pixels: number of green roof pixels
+'''
 SPLITS = ("train", "val", "test")
 MANIFEST_FIELDS = (
     "x",
@@ -20,6 +26,9 @@ MANIFEST_FIELDS = (
     "block_id",
     "positive_pixels",
 )
+
+'''A manifest is essentially not the image itself,
+but rather an index table for the images and masks, combined with a metadata table.'''
 
 
 @dataclass(frozen=True)
@@ -31,13 +40,14 @@ class TileRecord:
     block_id: str
     split: str
 
+    #Calculate the proportion of green roofs within this tile.
     @property
     def positive_fraction(self) -> float:
         return self.positive_pixels / (TILE_SIZE * TILE_SIZE)
 
 
 def write_manifests(output_root: Path, records: Iterable[TileRecord]) -> None:
-    """Write deterministic train/validation/test manifest CSV files."""
+    #Write deterministic train/validation/test manifest CSV files.
     rows = [
         {
             "x": record.key.x,
@@ -67,7 +77,7 @@ def write_manifests(output_root: Path, records: Iterable[TileRecord]) -> None:
 
 
 def load_manifest(path: Path) -> pd.DataFrame:
-    """Read source facts and derive convenient manifest fields in memory."""
+    #Read source facts and derive convenient manifest fields in memory.
     frame = pd.read_csv(path)
     if frame.empty:
         raise ValueError(f"Manifest is empty: {path}")
@@ -109,7 +119,7 @@ def load_manifest(path: Path) -> pd.DataFrame:
 
 
 def load_split_manifests(processed_root: Path) -> pd.DataFrame:
-    """Read and combine all canonical split manifests with a split column."""
+    #Read and combine all canonical split manifests with a split column.
     frames = []
     for split in SPLITS:
         frame = load_manifest(processed_root / "manifests" / f"{split}.csv")

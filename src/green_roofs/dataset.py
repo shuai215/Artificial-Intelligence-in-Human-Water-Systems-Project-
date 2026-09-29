@@ -31,6 +31,7 @@ class GreenRoofDataset(Dataset[tuple[Tensor, Tensor, str]]):
         self.transform = transform
         self.records = load_manifest(self.manifest_path).to_dict(orient="records")
 
+        #A tile is considered a positive tile if its mask contains at least one positive pixel.
         self.positive_indices = [
             index
             for index, record in enumerate(self.records)
@@ -42,6 +43,7 @@ class GreenRoofDataset(Dataset[tuple[Tensor, Tensor, str]]):
             if record["positive_pixels"] == 0
         ]
 
+    #A PyTorch Dataset needs to implement `__len__()` and `__getitem__()`.
     def __len__(self) -> int:
         return len(self.records)
 

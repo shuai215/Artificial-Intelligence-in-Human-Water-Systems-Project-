@@ -1,4 +1,5 @@
-"""Reproducible tile-level sampling strategies."""
+"""To prevent an excess of background tiles in the training set from causing the model to be exposed
+primarily to negative samples over an extended period."""
 
 from __future__ import annotations
 
@@ -29,6 +30,7 @@ class BalancedTileBatchSampler(Sampler[list[int]]):
             raise ValueError("positive_fraction must be between 0 and 1")
         if samples_per_epoch is not None and samples_per_epoch <= 0:
             raise ValueError("samples_per_epoch must be positive")
+        #Ensure that, regardless of the choice between floor and ceil, each batch contains at least one positive and one negative sample.
         minimum_positive = math.floor(batch_size * positive_fraction)
         maximum_positive = math.ceil(batch_size * positive_fraction)
         if minimum_positive < 1 or maximum_positive >= batch_size:
@@ -53,17 +55,23 @@ class BalancedTileBatchSampler(Sampler[list[int]]):
         return math.ceil(self.samples_per_epoch / self.batch_size)
 
     def __iter__(self) -> Iterator[list[int]]:
+        #The sampling order differs for each epoch, but as long as the seed remains the same, the entire training process is still reproducible.
         generator = random.Random(self.seed + self.epoch)
         self.epoch += 1
+        #To handle cases where division is not exact.
         assigned_positive = 0
         for batch_index in range(len(self)):
+            #Up to the current batch, what is the total number of positive samples that should theoretically have been used?
             target_positive = round(
                 (batch_index + 1) * self.batch_size * self.positive_fraction
             )
             positive_per_batch = target_positive - assigned_positive
+            #Mandatory restrictions
             positive_per_batch = max(1, min(self.batch_size - 1, positive_per_batch))
+
             assigned_positive += positive_per_batch
             negative_per_batch = self.batch_size - positive_per_batch
+            #`choices` involves sampling with replacement.
             positive = generator.choices(
                 self.positive_indices, k=positive_per_batch
             )

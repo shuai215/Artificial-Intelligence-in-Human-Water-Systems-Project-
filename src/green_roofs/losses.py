@@ -8,6 +8,7 @@ from torch.nn import functional
 
 
 def _prepare(logits: Tensor, target: Tensor) -> tuple[Tensor, Tensor]:
+    #Standardize data formats
     if logits.ndim != 4 or logits.shape[1] != 1:
         raise ValueError(f"Expected logits shaped [B,1,H,W], got {tuple(logits.shape)}")
     logits = logits[:, 0]
@@ -20,6 +21,7 @@ def _prepare(logits: Tensor, target: Tensor) -> tuple[Tensor, Tensor]:
 
 
 def soft_dice_loss(logits: Tensor, target: Tensor, smooth: float = 1.0) -> Tensor:
+    #During training, instead of thresholding to 0/1 first, the probabilities are used directly.
     logits, target = _prepare(logits, target)
     probabilities = torch.sigmoid(logits)
     dimensions = (1, 2)
@@ -30,6 +32,9 @@ def soft_dice_loss(logits: Tensor, target: Tensor, smooth: float = 1.0) -> Tenso
 
 
 class BCEDiceLoss(nn.Module):
+    '''BCE handles things at the pixel level is right or not?
+
+Dice measures how well the entire green roof area overlaps'''
     def __init__(self, bce_weight: float = 0.5, dice_weight: float = 0.5) -> None:
         super().__init__()
         self.bce_weight = bce_weight
@@ -37,6 +42,7 @@ class BCEDiceLoss(nn.Module):
 
     def forward(self, logits: Tensor, target: Tensor) -> Tensor:
         prepared_logits, prepared_target = _prepare(logits, target)
+        #Here, the logits do not need to pass through a sigmoid function beforehand.
         bce = functional.binary_cross_entropy_with_logits(
             prepared_logits, prepared_target
         )
@@ -45,6 +51,9 @@ class BCEDiceLoss(nn.Module):
 
 
 class FocalBCEDiceLoss(nn.Module):
+    #Addressing the issue of the loss being overwhelmed by a large number of easy negative samples.
+    #Pay less attention to the simple pixels the model has already mastered,
+    # and focus more on the difficult pixels it has not yet learned.
     def __init__(
         self,
         alpha: float = 0.25,
@@ -60,18 +69,23 @@ class FocalBCEDiceLoss(nn.Module):
 
     def forward(self, logits: Tensor, target: Tensor) -> Tensor:
         prepared_logits, prepared_target = _prepare(logits, target)
+        #Do not aggregate the loss per sample or per pixel; retain the loss for each individual position.
         bce = functional.binary_cross_entropy_with_logits(
             prepared_logits, prepared_target, reduction="none"
         )
+        #Convert raw logits into foreground probabilities.
         probabilities = torch.sigmoid(prepared_logits)
+        #The model's predicted probability for the "true class"
         probability_true_class = (
             probabilities * prepared_target
             + (1.0 - probabilities) * (1.0 - prepared_target)
         )
+        #The respective importance of positive and negative samples
         alpha_factor = (
             self.alpha * prepared_target
             + (1.0 - self.alpha) * (1.0 - prepared_target)
         )
+
         focal = (
             alpha_factor * (1.0 - probability_true_class).pow(self.gamma) * bce
         ).mean()

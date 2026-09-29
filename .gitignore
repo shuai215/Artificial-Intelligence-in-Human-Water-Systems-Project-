@@ -1,5 +1,6 @@
 __pycache__/
 *.py[cod]
 .venv/
-.ppt_build/
-symbology-style.db
+.mypy_cache/
+.pytest_cache/
+DEV_LOG.md

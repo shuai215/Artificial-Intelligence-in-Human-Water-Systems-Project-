@@ -49,6 +49,7 @@ class BinarySegmentationMetrics:
             raise ValueError(f"Expected logits shaped [B,1,H,W], got {tuple(logits.shape)}")
         predicted_positive = torch.sigmoid(logits[:, 0]) >= threshold
         actual_positive = target == 1
+        #Confusion matrix
         self.true_positive += int((predicted_positive & actual_positive).sum().item())
         self.false_positive += int((predicted_positive & ~actual_positive).sum().item())
         self.false_negative += int((~predicted_positive & actual_positive).sum().item())

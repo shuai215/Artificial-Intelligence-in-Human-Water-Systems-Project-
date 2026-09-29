@@ -15,7 +15,7 @@ WEB_MERCATOR_CRS = "EPSG:3857"
 
 
 def read_polygon_shapefile(path: Path) -> gpd.GeoDataFrame:
-    """Read a polygon layer and project it directly to EPSG:3857."""
+    #Read a polygon layer and project it directly to EPSG:3857.
     frame = gpd.read_file(path, engine="pyogrio")
     if frame.crs is None:
         raise ValueError(f"Shapefile has no declared CRS: {path}")
@@ -31,7 +31,7 @@ def read_polygon_shapefile(path: Path) -> gpd.GeoDataFrame:
 
 
 def load_polygon_labels(paths: Iterable[Path]) -> gpd.GeoDataFrame:
-    """Load source label layers already normalized to EPSG:3857 and combine them."""
+    #Load source label layers already normalized to EPSG:3857 and combine them.
     frames = [read_polygon_shapefile(path) for path in paths]
     if not frames:
         raise ValueError("At least one polygon label path is required")
@@ -42,7 +42,7 @@ def load_polygon_labels(paths: Iterable[Path]) -> gpd.GeoDataFrame:
     )
     return combined
 
-
+#Regardless of whether a Polygon or a MultiPolygon is passed in, give me a `tuple[Polygon, ...]` in a consistent format.
 def _polygon_parts(geometry: BaseGeometry) -> tuple[Polygon, ...]:
     if isinstance(geometry, Polygon):
         return (geometry,)

@@ -1,6 +1,6 @@
 [data]
 dataset_root = "../../data/green_roofs/green_roofs"
-processed_root = "../../data/processed/green_roofs_2016"
+processed_root = "../../data/processed/green_roofs_2016_plz12357"
 image_size = 256
 augment_training = true
 
@@ -17,7 +17,7 @@ focal_weight = 0.5
 dice_weight = 0.5
 
 [sampling]
-positive_tile_fraction = 0.5
+positive_only = true
 
 [training]
 seed = 42
@@ -25,4 +25,4 @@ batch_size = 4
 num_workers = 0
 epochs = 20
 learning_rate = 0.0001
-output_dir = "../../runs/unet_focal_dice"
+output_dir = "../../runs/unet_plz12357_positive_only_focal_dice"

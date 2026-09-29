@@ -16,6 +16,7 @@ from green_roofs.metrics import BinarySegmentationMetrics
 from green_roofs.models import ExerciseResNet50UNet, build_model
 from green_roofs.sampling import BalancedTileBatchSampler
 from green_roofs.transforms import SegmentationTransform
+from scripts.analyze_validation import create_diagnostic
 
 
 class DatasetTests(unittest.TestCase):
@@ -86,6 +87,24 @@ class MetricTests(unittest.TestCase):
         self.assertAlmostEqual(result["foreground_recall"], 1.0)
         self.assertAlmostEqual(result["foreground_iou"], 0.5)
         self.assertAlmostEqual(result["foreground_dice"], 2 / 3)
+
+
+class DiagnosticTests(unittest.TestCase):
+    def test_diagnostic_has_five_panels_and_correct_error_colors(self) -> None:
+        diagnostic = create_diagnostic(
+            Image.new("RGB", (2, 2)),
+            torch.tensor([[1, 1], [0, 0]]),
+            torch.tensor([[0.9, 0.1], [0.9, 0.1]]),
+            threshold=0.5,
+            tile_id="tile",
+            category="test",
+        )
+
+        self.assertEqual(diagnostic.size, (10, 60))
+        self.assertEqual(diagnostic.getpixel((8, 34)), (0, 200, 0))
+        self.assertEqual(diagnostic.getpixel((9, 34)), (40, 100, 230))
+        self.assertEqual(diagnostic.getpixel((8, 35)), (230, 40, 40))
+        self.assertEqual(diagnostic.getpixel((9, 35)), (0, 0, 0))
 
 
 class ModelTests(unittest.TestCase):

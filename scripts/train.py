@@ -1,4 +1,8 @@
-"""Train a segmentation baseline from a TOML configuration."""
+"""Train a segmentation baseline from a TOML configuration.
+
+The entry point reads the experiment configuration, prepares the data loaders,
+builds the model, loss, and optimizer, and then runs training.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +15,14 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
+
+'''dataset.py: Handles loading images and masks
+engine.py: Executes the actual training loop
+losses.py: Defines loss functions such as BCE and Dice
+models.py: Defines the ResNet50-U-Net model
+sampling.py: Controls the ratio of positive to negative samples
+transforms.py: Handles resizing, augmentation, etc.
+'''
 
 from green_roofs.dataset import GreenRoofDataset
 from green_roofs.engine import fit
@@ -30,7 +42,7 @@ def seed_everything(seed: int) -> None:
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 
-
+#This function is responsible for creating the DataLoader for the training data.
 def build_train_loader(
     dataset: GreenRoofDataset,
     sampling_config: dict[str, object],
@@ -38,7 +50,6 @@ def build_train_loader(
     num_workers: int,
     seed: int,
 ) -> tuple[DataLoader, int, int, bool]:
-    """Build the configured sampler and return its planned epoch composition."""
     positive_only = bool(sampling_config.get("positive_only", False))
     if positive_only:
         positive_indices = set(dataset.positive_indices)
@@ -57,6 +68,7 @@ def build_train_loader(
         return loader, len(dataset), len(dataset), True
 
     positive_fraction = float(sampling_config["positive_tile_fraction"])
+    #We want positive samples to be sampled an average of a certain number of times per epoch.
     positive_repeats = sampling_config.get("positive_repeats_per_epoch")
     samples_per_epoch = len(dataset)
     if positive_repeats is not None:
@@ -104,11 +116,13 @@ def main() -> None:
     dataset_root = resolve_path(config_path, data_config["dataset_root"])
     processed_root = resolve_path(config_path, data_config["processed_root"])
     image_size = int(data_config["image_size"])
+    #Create data augmentation
     train_transform = SegmentationTransform(
         training=True,
         augment=bool(data_config["augment_training"]),
         image_size=image_size,
     )
+    #No data augmentation is performed on the validation set.
     evaluation_transform = SegmentationTransform(
         training=False, augment=False, image_size=image_size
     )
@@ -139,6 +153,7 @@ def main() -> None:
         num_workers,
         seed,
     )
+    #shuffle=False,The validation set does not use balanced sampling.
     val_loader = DataLoader(
         val_dataset,
         batch_size=batch_size,
@@ -158,6 +173,7 @@ def main() -> None:
     model.to(device)
 
     criterion = build_loss(config["loss"])
+    #PyTorch uses the default settings for AdamW.weight_decay = 0.01
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=float(config["training"]["learning_rate"])
     )
@@ -174,6 +190,7 @@ def main() -> None:
         f"freeze_encoder_bn={model_config.get('freeze_encoder_batch_norm', False)} "
         f"loss={config['loss']['name']} output={output_dir}"
     )
+    #Check whether each mask contains at least one positive pixel.
     if args.check_only:
         images, masks, tile_ids = next(iter(train_loader))
         positive_tiles = int((masks.flatten(1).sum(dim=1) > 0).sum().item())

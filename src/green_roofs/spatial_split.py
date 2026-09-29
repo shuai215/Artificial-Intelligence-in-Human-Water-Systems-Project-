@@ -40,12 +40,16 @@ def assign_spatial_splits(
     rng = random.Random(seed)
     block_items = list(blocks.items())
     rng.shuffle(block_items)
+    #If two blocks have the same number of positive pixels, their original relative order is preserved.
+    #Sort by the number of positive pixels in descending order.
     block_items.sort(
         key=lambda item: sum(tile_stats[key] for key in item[1]), reverse=True
     )
 
+    #Start a block, then divide into blocks.
     block_splits: dict[str, str] = {}
     for block_id, keys in block_items:
+        #How many tiles are in the current block?
         block_tiles = len(keys)
         block_positive = sum(tile_stats[key] for key in keys)
         scores: dict[str, float] = {}
@@ -57,7 +61,10 @@ def assign_spatial_splits(
                 targets[split]["positive_pixels"]
                 - assigned[split]["positive_pixels"]
             ) / max(targets[split]["positive_pixels"], 1)
+            #Importance of tile count       = 35%
+            #Importance of positive pixels = 65%
             scores[split] = 0.35 * tile_deficit + 0.65 * positive_deficit
+        #Give it to whoever has the highest score.
         split = max(scores, key=lambda candidate: scores[candidate])
         block_splits[block_id] = split
         assigned[split]["blocks"] += 1

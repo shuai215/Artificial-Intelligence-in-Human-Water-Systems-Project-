@@ -20,10 +20,6 @@ from green_roofs.label_qa import (
     coverage_stratified_sample,
     create_review_pair,
 )
-from green_roofs.qgis_annotation import (
-    create_annotation_geopackage,
-    mosaic_spec,
-)
 
 
 class CoordinateTests(unittest.TestCase):
@@ -33,21 +29,6 @@ class CoordinateTests(unittest.TestCase):
         self.assertLess(bottom, top)
         self.assertAlmostEqual(right - left, top - bottom, places=8)
 
-    def test_qgis_mosaic_spec_matches_rectangular_xyz_grid(self) -> None:
-        keys = {
-            TileKey(x, y)
-            for x in range(281761, 281815)
-            for y in range(172126, 172191)
-        }
-        spec = mosaic_spec(keys)
-        self.assertEqual((spec.width, spec.height), (54 * 256, 65 * 256))
-        self.assertEqual((spec.min_x, spec.max_x), (281761, 281814))
-        self.assertEqual((spec.min_y, spec.max_y), (172126, 172190))
-
-    def test_qgis_mosaic_rejects_missing_tile(self) -> None:
-        with self.assertRaisesRegex(ValueError, "missing 1 tiles"):
-            mosaic_spec({TileKey(10, 20), TileKey(11, 20), TileKey(10, 21)})
-
     def test_study_area_selects_tiles_by_centre(self) -> None:
         inside = TileKey(281790, 172160)
         outside = TileKey(281791, 172160)
@@ -56,47 +37,6 @@ class CoordinateTests(unittest.TestCase):
             box(*tile_bounds_mercator(inside)),
         )
         self.assertEqual(selected, {inside: Path("inside.png")})
-
-
-class QGISAnnotationTests(unittest.TestCase):
-    def test_geopandas_writes_label_and_tile_grid_layers(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            entire_root = root / "training_labels_entire_roofs"
-            partial_root = root / "training_labels_partial_roofs"
-            entire_root.mkdir()
-            partial_root.mkdir()
-            geometry = Polygon(
-                [(13.48, 52.42), (13.481, 52.42), (13.481, 52.421), (13.48, 52.42)]
-            )
-            gpd.GeoDataFrame(
-                {"plz": ["12357"], "bds16_id": [1]},
-                geometry=[geometry],
-                crs="EPSG:4326",
-            ).to_file(entire_root / "Berlin_2016_12357_Green.shp", engine="pyogrio")
-            gpd.GeoDataFrame(
-                {"plz": ["12357"], "gt2016_id": [2], "gruen_kat": ["extensiv"]},
-                geometry=[geometry],
-                crs="EPSG:4326",
-            ).to_file(
-                partial_root / "Berlin_Gründächer_DachteilflächenGebäude_2016_12357.shp",
-                engine="pyogrio",
-            )
-            output_path = root / "annotations.gpkg"
-
-            counts = create_annotation_geopackage(
-                root,
-                {TileKey(281790, 172160): root / "unused.png"},
-                output_path,
-            )
-
-            labels = gpd.read_file(output_path, layer="green_roofs", engine="pyogrio")
-            tiles = gpd.read_file(output_path, layer="tile_grid", engine="pyogrio")
-            self.assertEqual(counts, {"label_feature_count": 2, "tile_feature_count": 1})
-            self.assertEqual(len(labels), 2)
-            self.assertEqual(len(tiles), 1)
-            self.assertEqual(labels.crs.to_epsg(), 3857)
-            self.assertEqual(tiles.crs.to_epsg(), 3857)
 
 
 class RasterizationTests(unittest.TestCase):

@@ -44,6 +44,7 @@ class ExerciseResNet50UNet(nn.Module):
     ) -> None:
         super().__init__()
         self.freeze_encoder_batch_norm = freeze_encoder_batch_norm
+        #Use torchvision's ResNet50 directly as the encoder
         weights = ResNet50_Weights.DEFAULT if pretrained else None
         self.encoder = resnet50(weights=weights)
         self.center = DecoderBlock(2048, num_filters * 8)

@@ -20,6 +20,7 @@ def run_epoch(
     device: torch.device,
     optimizer: torch.optim.Optimizer | None = None,
 ) -> dict[str, float]:
+    #Run a round
     training = optimizer is not None
     model.train(training)
     metrics = BinarySegmentationMetrics()
@@ -60,6 +61,7 @@ def fit(
     early_stopping_patience: int | None = None,
     early_stopping_min_delta: float = 0.0,
 ) -> list[dict[str, float | int]]:
+    #Manage multiple rounds
     output_dir.mkdir(parents=True, exist_ok=True)
     history: list[dict[str, float | int]] = []
     best_dice = -1.0

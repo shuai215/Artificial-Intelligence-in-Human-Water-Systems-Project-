@@ -39,7 +39,7 @@ def metric_row(threshold: float, counts: dict[str, int]) -> dict[str, float | in
 def summarize_positive_tiles(
     rows: list[dict[str, int | float | str]],
 ) -> dict[str, int | float]:
-    """Aggregate pixel metrics over tiles that contain foreground."""
+    #Aggregate pixel metrics over tiles that contain foreground.
     true_positive = sum(int(row["true_positive"]) for row in rows)
     false_positive = sum(int(row["false_positive"]) for row in rows)
     false_negative = sum(int(row["false_negative"]) for row in rows)
@@ -75,19 +75,14 @@ def create_diagnostic(
         prediction_bool.to(torch.uint8).numpy(), mode="L"
     )
 
-    error = Image.new("RGB", image.size, (0, 0, 0))
-    error_pixels = error.load()
     tp = prediction_bool & target_bool
     fp = prediction_bool & ~target_bool
     fn = ~prediction_bool & target_bool
-    for y in range(image.height):
-        for x in range(image.width):
-            if tp[y, x]:
-                error_pixels[x, y] = (0, 200, 0)
-            elif fp[y, x]:
-                error_pixels[x, y] = (230, 40, 40)
-            elif fn[y, x]:
-                error_pixels[x, y] = (40, 100, 230)
+    error_pixels = torch.zeros((*target_bool.shape, 3), dtype=torch.uint8)
+    error_pixels[tp] = torch.tensor((0, 200, 0), dtype=torch.uint8)
+    error_pixels[fp] = torch.tensor((230, 40, 40), dtype=torch.uint8)
+    error_pixels[fn] = torch.tensor((40, 100, 230), dtype=torch.uint8)
+    error = Image.fromarray(error_pixels.numpy(), mode="RGB")
 
     panels = [
         image.convert("RGB"),
@@ -120,6 +115,7 @@ def accumulate_threshold_counts(
     device: torch.device,
     thresholds: list[float],
 ) -> dict[float, dict[str, int]]:
+    #Run through the entire dataset once, then evaluate multiple thresholds simultaneously.
     counts = {
         threshold: {"tp": 0, "fp": 0, "fn": 0, "tn": 0}
         for threshold in thresholds
@@ -189,7 +185,6 @@ def write_diagnostics(
     model: torch.nn.Module,
     dataset: GreenRoofDataset,
     selected: dict[str, list[dict[str, int | float | str]]],
-    dataset_root: Path,
     output_dir: Path,
     device: torch.device,
     threshold: float,
@@ -201,11 +196,12 @@ def write_diagnostics(
             for rank, row in enumerate(category_rows, start=1):
                 index = int(row["index"])
                 image_tensor, target, tile_id = dataset[index]
+                #get[H,W]
                 probability = torch.sigmoid(
                     model(image_tensor.unsqueeze(0).to(device))[0, 0]
                 ).cpu()
                 record = dataset.records[index]
-                with Image.open(dataset_root / record["image_relpath"]) as source:
+                with Image.open(dataset.dataset_root / record["image_relpath"]) as source:
                     image = source.convert("RGB")
                 diagnostic = create_diagnostic(
                     image, target, probability, threshold, tile_id, category
@@ -224,6 +220,7 @@ def main() -> None:
     parser.add_argument("--split", choices=("val", "test"), default="val")
     parser.add_argument("--threshold", type=float)
     args = parser.parse_args()
+    #Test Threshold Protection
     if args.split == "test" and args.threshold is None:
         parser.error("--threshold is required for test evaluation")
     if args.threshold is not None and not 0.0 < args.threshold < 1.0:
@@ -314,7 +311,6 @@ def main() -> None:
         model,
         dataset,
         selected,
-        dataset_root,
         output_dir,
         device,
         threshold,
